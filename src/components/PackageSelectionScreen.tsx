@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   GraduationCap,
   ArrowLeft,
@@ -9,8 +9,11 @@ import {
   Package,
   ChevronDown,
   ChevronUp,
+  Lock,
 } from 'lucide-react';
 import { TryoutPackage } from '@/data/questions';
+import { verifyTryoutCode, fetchAccessCodes } from '@/lib/accessCodeStore';
+import AccessCodeModal from './AccessCodeModal';
 
 interface PackageSelectionScreenProps {
   packages: TryoutPackage[];
@@ -20,9 +23,53 @@ interface PackageSelectionScreenProps {
 
 export default function PackageSelectionScreen({ packages, onSelect, onBackHome }: PackageSelectionScreenProps) {
   const [expandedId, setExpandedId] = useState<number | null>(packages[0]?.id ?? null);
+  const [codeModalPkg, setCodeModalPkg] = useState<TryoutPackage | null>(null);
+  const [protectedIds, setProtectedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const rows = await fetchAccessCodes();
+        if (mounted) setProtectedIds(new Set(rows.map((r) => r.package_id)));
+      } catch {
+        // Students can't SELECT the table (admin-only); that's fine —
+        // verification still happens via verifyTryoutCode on submit.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const toggle = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const handleAttemptStart = async (pkg: TryoutPackage) => {
+    // Verify access code server-side. If no code is set for the package,
+    // verifyTryoutCode returns true and we proceed immediately.
+    try {
+      const ok = await verifyTryoutCode(pkg.id, '');
+      if (ok) {
+        onSelect(pkg);
+        return;
+      }
+    } catch {
+      // fall through to code modal
+    }
+    setCodeModalPkg(pkg);
+  };
+
+  const handleCodeSubmit = async (code: string) => {
+    if (!codeModalPkg) return;
+    const ok = await verifyTryoutCode(codeModalPkg.id, code);
+    if (!ok) {
+      throw new Error('Kode akses tidak valid, silakan hubungi tutor/admin.');
+    }
+    const pkg = codeModalPkg;
+    setCodeModalPkg(null);
+    onSelect(pkg);
   };
 
   return (
@@ -81,7 +128,15 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
                     {pkg.id}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-base">{pkg.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-semibold text-base truncate">{pkg.name}</p>
+                      {protectedIds.has(pkg.id) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-yellow-300 bg-yellow-400/15 border border-yellow-400/30 px-1.5 py-0.5 rounded-full shrink-0">
+                          <Lock className="w-3 h-3" />
+                          Terkunci
+                        </span>
+                      )}
+                    </div>
                     <p className="text-blue-300 text-sm line-clamp-1">{pkg.description}</p>
                     <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-blue-300">
                       <span className="inline-flex items-center gap-1">
@@ -128,7 +183,7 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
                     ))}
 
                     <button
-                      onClick={() => onSelect(pkg)}
+                      onClick={() => handleAttemptStart(pkg)}
                       className="w-full mt-2 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
                     >
                       Mulai Paket Ini
@@ -141,6 +196,14 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
           })}
         </div>
       </div>
+
+      {codeModalPkg && (
+        <AccessCodeModal
+          packageName={codeModalPkg.name}
+          onSubmit={handleCodeSubmit}
+          onCancel={() => setCodeModalPkg(null)}
+        />
+      )}
     </div>
   );
 }

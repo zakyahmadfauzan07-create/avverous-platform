@@ -8,6 +8,7 @@ import DiscussionScreen from '@/components/DiscussionScreen';
 import AdminScreen from '@/components/AdminScreen';
 import AuthScreen from '@/components/AuthScreen';
 import HistoryScreen from '@/components/HistoryScreen';
+import StudentDashboard from '@/components/StudentDashboard';
 import { scoreSubtest } from '@/lib/subtestStore';
 import { loadPackages, savePackages, resetPackages } from '@/lib/packageStore';
 import { loadPracticeQuestions, savePracticeQuestions } from '@/lib/practiceStore';
@@ -147,7 +148,23 @@ export default function App() {
   };
 
   const handleAuthSuccess = () => {
-    setScreen('packageSelection');
+    setScreen('dashboard');
+  };
+
+  const handleOpenDashboard = () => {
+    if (!auth.user) {
+      setScreen('auth');
+      return;
+    }
+    setScreen('dashboard');
+  };
+
+  const handleOpenAdmin = () => {
+    if (!auth.user) {
+      setScreen('auth');
+      return;
+    }
+    setScreen('admin');
   };
 
   const handleUpdate = (newProgress: ExamProgress) => {
@@ -245,12 +262,25 @@ export default function App() {
         results={tryoutResults}
         onResultDelete={handleResultDelete}
         onExit={goHome}
+        isAdmin={auth.isAdmin}
+        adminName={auth.profile?.full_name || auth.user?.email}
       />
     );
   }
 
   if (screen === 'auth') {
     return <AuthScreen onBackHome={goHome} onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  if (screen === 'dashboard' && auth.user) {
+    return (
+      <StudentDashboard
+        user={auth.user}
+        profile={auth.profile}
+        onBackHome={goHome}
+        onStartTryout={handleStartTryout}
+      />
+    );
   }
 
   if (screen === 'history' && auth.user) {
@@ -261,8 +291,10 @@ export default function App() {
     return (
       <LandingPage
         onStartTryout={handleStartTryout}
-        onAdmin={() => setScreen('admin')}
+        onAdmin={handleOpenAdmin}
         onHistory={() => setScreen('history')}
+        onDashboard={handleOpenDashboard}
+        isAdmin={auth.isAdmin}
         subtests={packages[0]?.subtests ?? []}
         user={auth.user}
         profile={auth.profile}
@@ -303,8 +335,10 @@ export default function App() {
   return (
     <LandingPage
       onStartTryout={handleStartTryout}
-      onAdmin={() => setScreen('admin')}
+      onAdmin={handleOpenAdmin}
       onHistory={() => setScreen('history')}
+      onDashboard={handleOpenDashboard}
+      isAdmin={auth.isAdmin}
       subtests={packages[0]?.subtests ?? []}
       user={auth.user}
       profile={auth.profile}

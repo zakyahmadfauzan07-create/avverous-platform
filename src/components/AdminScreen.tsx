@@ -1,5 +1,19 @@
 import { useState } from 'react';
-import { GraduationCap, Lock, ArrowLeft, ListChecks, FileQuestion, Library, Trophy } from 'lucide-react';
+import {
+  GraduationCap,
+  Lock,
+  ArrowLeft,
+  ListChecks,
+  FileQuestion,
+  Library,
+  Trophy,
+  CalendarDays,
+  BookOpen,
+  Users,
+  ClipboardList,
+  ShieldCheck,
+  KeyRound,
+} from 'lucide-react';
 import { Subtest, PracticeQuestion, LearningModule } from '@/types';
 import { TryoutPackage } from '@/data/questions';
 import { ExamResultWithId } from '@/lib/examResultsStore';
@@ -7,6 +21,11 @@ import QuestionsTab from './admin/QuestionsTab';
 import PracticeTab from './admin/PracticeTab';
 import ModulesTab from './admin/ModulesTab';
 import ResultsTab from './admin/ResultsTab';
+import GradesTab from './admin/GradesTab';
+import SchedulesTab from './admin/SchedulesTab';
+import MaterialsTab from './admin/MaterialsTab';
+import StudentsTab from './admin/StudentsTab';
+import AccessCodesTab from './admin/AccessCodesTab';
 
 interface AdminScreenProps {
   packages: TryoutPackage[];
@@ -19,17 +38,31 @@ interface AdminScreenProps {
   results: ExamResultWithId[];
   onResultDelete: (dbId: string) => void;
   onExit: () => void;
+  isAdmin: boolean;
+  adminName?: string;
 }
 
-const ADMIN_PIN = '123456';
-
-type TabId = 'questions' | 'practice' | 'modules' | 'results';
+type TabId =
+  | 'questions'
+  | 'practice'
+  | 'modules'
+  | 'results'
+  | 'grades'
+  | 'schedules'
+  | 'materials'
+  | 'students'
+  | 'accessCodes';
 
 const TABS: { id: TabId; label: string; icon: typeof ListChecks }[] = [
   { id: 'questions', label: 'Soal Tryout', icon: ListChecks },
-  { id: 'practice', label: 'Bank Latihan Soal', icon: FileQuestion },
-  { id: 'modules', label: 'Modul Pembelajaran', icon: Library },
-  { id: 'results', label: 'Hasil Tryout Siswa', icon: Trophy },
+  { id: 'practice', label: 'Bank Latihan', icon: FileQuestion },
+  { id: 'modules', label: 'Modul (lokal)', icon: Library },
+  { id: 'results', label: 'Hasil Tryout', icon: Trophy },
+  { id: 'grades', label: 'Input Nilai', icon: ClipboardList },
+  { id: 'schedules', label: 'Jadwal', icon: CalendarDays },
+  { id: 'materials', label: 'Materi Arsip', icon: BookOpen },
+  { id: 'students', label: 'Daftar Siswa', icon: Users },
+  { id: 'accessCodes', label: 'Kode Akses', icon: KeyRound },
 ];
 
 export default function AdminScreen({
@@ -43,64 +76,31 @@ export default function AdminScreen({
   results,
   onResultDelete,
   onExit,
+  isAdmin,
+  adminName,
 }: AdminScreenProps) {
-  const [unlocked, setUnlocked] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('questions');
 
-  const handlePinSubmit = () => {
-    if (pinInput === ADMIN_PIN) {
-      setUnlocked(true);
-      setPinError(false);
-    } else {
-      setPinError(true);
-    }
-  };
-
-  // ---- PIN gate ----
-  if (!unlocked) {
+  // Role gate: only admins. The database also enforces this via RLS,
+  // so this is defense-in-depth, not the only check.
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-600/30">
-              <Lock className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-1">Panel Guru / Admin</h1>
-            <p className="text-slate-400 text-sm">Masukkan PIN untuk mengakses panel</p>
+        <div className="w-full max-w-sm text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-600/20 border border-red-500/30 rounded-2xl mb-4">
+            <Lock className="w-8 h-8 text-red-400" />
           </div>
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 p-6">
-            <input
-              type="password"
-              value={pinInput}
-              onChange={(e) => {
-                setPinInput(e.target.value);
-                setPinError(false);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
-              placeholder="PIN Admin..."
-              autoFocus
-              className={`w-full bg-slate-900 border rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition text-center text-lg tracking-widest ${
-                pinError ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-blue-500'
-              }`}
-            />
-            {pinError && <p className="text-red-400 text-xs mt-2 text-center">PIN salah. Coba lagi.</p>}
-            <button
-              onClick={handlePinSubmit}
-              className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition"
-            >
-              Masuk
-            </button>
-            <button
-              onClick={onExit}
-              className="w-full mt-2 text-slate-400 hover:text-white text-sm py-2 transition flex items-center justify-center gap-1.5"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Kembali ke Beranda
-            </button>
-            <p className="text-slate-600 text-xs text-center mt-3">PIN default: 123456</p>
-          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Akses Ditolak</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            Halaman ini khusus admin/tutor. Akun kamu tidak memiliki izin yang diperlukan.
+          </p>
+          <button
+            onClick={onExit}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Kembali ke Beranda
+          </button>
         </div>
       </div>
     );
@@ -115,8 +115,13 @@ export default function AdminScreen({
             <GraduationCap className="w-5 h-5" />
           </div>
           <div>
-            <p className="font-semibold text-sm leading-tight">Panel Guru / Admin</p>
-            <p className="text-slate-400 text-xs">Kelola konten & hasil tryout</p>
+            <p className="font-semibold text-sm leading-tight flex items-center gap-1.5">
+              Panel Guru / Admin
+              <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
+            </p>
+            <p className="text-slate-400 text-xs">
+              {adminName ? `Masuk sebagai ${adminName}` : 'Kelola konten & hasil tryout'}
+            </p>
           </div>
         </div>
         <button
@@ -159,6 +164,11 @@ export default function AdminScreen({
         {activeTab === 'practice' && <PracticeTab questions={practiceQuestions} onChange={onPracticeChange} />}
         {activeTab === 'modules' && <ModulesTab modules={modules} onChange={onModulesChange} />}
         {activeTab === 'results' && <ResultsTab results={results} onDelete={onResultDelete} />}
+        {activeTab === 'grades' && <GradesTab />}
+        {activeTab === 'schedules' && <SchedulesTab />}
+        {activeTab === 'materials' && <MaterialsTab />}
+        {activeTab === 'students' && <StudentsTab />}
+        {activeTab === 'accessCodes' && <AccessCodesTab packages={packages} />}
       </div>
     </div>
   );
