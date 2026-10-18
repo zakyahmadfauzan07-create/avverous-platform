@@ -40,11 +40,14 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [now, setNow] = useState(Date.now());
 
-  // tick timer
+  const needsTransition = !subState.startedAt && !subState.ended;
+
+  // tick timer only after the subtest has actually started
   useEffect(() => {
+    if (!subState.startedAt) return;
     const interval = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [subState.startedAt]);
 
   // compute remaining seconds
   const elapsedMs = subState.startedAt ? now - subState.startedAt : 0;
@@ -54,11 +57,11 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
 
   // auto-transition when time runs out
   useEffect(() => {
-    if (remaining <= 0 && !subState.ended) {
+    if (subState.startedAt && remaining <= 0 && !subState.ended) {
       handleSubtestEnd(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
+  }, [remaining, subState.startedAt]);
 
   const currentQuestion: Question = currentSubtest.questions[currentQIndex];
 
@@ -151,6 +154,16 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
     if (isManualSubmit) setShowSubmitConfirm(false);
   };
 
+  const handleStartNextSubtest = () => {
+    const newSubStates = [...progress.subtestStates];
+    newSubStates[progress.currentSubtestIndex] = {
+      ...subState,
+      startedAt: Date.now(),
+    };
+    onUpdate({ ...progress, subtestStates: newSubStates });
+    setNow(Date.now());
+  };
+
   const answeredCount = Object.keys(subState.answers).filter((k) => subState.answers[Number(k)]).length;
   const doubtCount = Object.keys(subState.doubts).filter((k) => subState.doubts[Number(k)]).length;
 
@@ -161,6 +174,63 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
   };
 
   const isLastSubtest = progress.currentSubtestIndex >= subtests.length - 1;
+
+  if (needsTransition) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Subtes Selesai</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            Anda telah menyelesaikan subtes sebelumnya. Siapkan diri untuk subtes berikutnya.
+          </p>
+
+          <div className="bg-slate-50 rounded-xl p-5 text-left space-y-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-900 rounded-lg flex items-center justify-center shrink-0">
+                <GraduationCap className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Subtes Berikutnya</p>
+                <p className="font-bold text-slate-900 truncate">{currentSubtest.name}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+                  <HelpCircle className="w-3.5 h-3.5" /> Jumlah Soal
+                </div>
+                <p className="text-xl font-bold text-slate-900">{currentSubtest.questions.length}</p>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+                  <Clock className="w-3.5 h-3.5" /> Alokasi Waktu
+                </div>
+                <p className="text-xl font-bold text-slate-900">{currentSubtest.durationMinutes} m</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6 flex items-start gap-2 text-left">
+            <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-yellow-700 leading-relaxed">
+              Timer belum berjalan. Klik tombol di bawah ketika Anda sudah siap — timer subtes akan mulai berjalan saat itu juga.
+            </p>
+          </div>
+
+          <button
+            onClick={handleStartNextSubtest}
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-base rounded-xl transition flex items-center justify-center gap-2"
+          >
+            Lanjut Kerjakan Subtes Berikutnya
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">

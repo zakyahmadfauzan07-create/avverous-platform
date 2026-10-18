@@ -24,11 +24,11 @@ function createInitialProgress(name: string, subtests: Subtest[]): ExamProgress 
   return {
     participantName: name,
     currentSubtestIndex: 0,
-    subtestStates: subtests.map((st) => ({
+    subtestStates: subtests.map((st, idx) => ({
       subtestId: st.id,
       answers: {},
       doubts: {},
-      startedAt: Date.now(),
+      startedAt: idx === 0 ? Date.now() : null,
       ended: false,
     })),
     completedSubtests: [],
