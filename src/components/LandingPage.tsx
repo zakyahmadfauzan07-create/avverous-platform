@@ -22,6 +22,7 @@ import {
   History,
   LayoutDashboard,
   Info,
+  CircleUser,
 } from 'lucide-react';
 import { Subtest } from '@/types';
 import { UserProfile } from '@/lib/supabase';
@@ -386,7 +387,7 @@ export default function LandingPage({ onStartTryout, onAdmin, onHistory, onDashb
             <p className="text-slate-500 text-base max-w-2xl mx-auto">Tiga pilar pembelajaran terintegrasi untuk persiapan ujian yang matang.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Card 1: Tryout CBT */}
             <FeatureCard
               icon={<Monitor className="w-7 h-7" />}
@@ -419,6 +420,17 @@ export default function LandingPage({ onStartTryout, onAdmin, onHistory, onDashb
               description="Drilling soal mandiri tanpa tekanan waktu per subtes. Latihan sepuasnya."
               actionLabel="Latihan Sekarang"
               href="#tryout"
+            />
+
+            {/* Card 4: Dashboard Siswa */}
+            <FeatureCard
+              icon={<CircleUser className="w-7 h-7" />}
+              iconBg="bg-purple-50"
+              iconColor="text-purple-600"
+              title="Dashboard Siswa"
+              description="Pantau analitik nilai tryout, riwayat pengerjaan soal, dan progres belajarmu secara real-time."
+              actionLabel="Buka Dashboard"
+              onAction={handleDashboardClick}
             />
 
           </div>
