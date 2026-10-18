@@ -220,13 +220,25 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
             </p>
           </div>
 
-          <button
-            onClick={handleStartNextSubtest}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-base rounded-xl transition flex items-center justify-center gap-2"
-          >
-            Lanjut Kerjakan Subtes Berikutnya
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="space-y-2.5">
+            <button
+              onClick={handleStartNextSubtest}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-base rounded-xl transition flex items-center justify-center gap-2"
+            >
+              Lanjut Kerjakan Subtes Berikutnya
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onBackHome}
+              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2"
+            >
+              <Home className="w-4 h-4" />
+              Simpan & Kembali ke Beranda
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
+            Progres subtes yang sudah selesai otomatis tersimpan. Anda bisa melanjutkan subtes berikutnya kapan saja dari beranda.
+          </p>
         </div>
       </div>
     );
