@@ -20,6 +20,8 @@ import {
   LogIn,
   LogOut,
   History,
+  LayoutDashboard,
+  Info,
 } from 'lucide-react';
 import { Subtest } from '@/types';
 import { UserProfile } from '@/lib/supabase';
@@ -43,11 +45,22 @@ const NAV_ITEMS = [
   { label: 'Kontak', href: '#kontak' },
 ];
 
-export default function LandingPage({ onStartTryout, onAdmin, onHistory, subtests, user, profile, onLogout, onLogin }: LandingPageProps) {
+export default function LandingPage({ onStartTryout, onAdmin, onHistory, onDashboard, isAdmin, subtests, user, profile, onLogout, onLogin }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLoginNotice, setShowLoginNotice] = useState(false);
 
   const totalQuestions = subtests.reduce((acc, s) => acc + s.questions.length, 0);
   const totalMinutes = subtests.reduce((acc, s) => acc + s.durationMinutes, 0);
+
+  const handleDashboardClick = () => {
+    setMobileMenuOpen(false);
+    if (user) {
+      onDashboard();
+    } else {
+      setShowLoginNotice(true);
+      onLogin();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-800">
@@ -82,12 +95,21 @@ export default function LandingPage({ onStartTryout, onAdmin, onHistory, subtest
             {/* Right actions */}
             <div className="hidden lg:flex items-center gap-3">
               <button
-                onClick={onAdmin}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-blue-900 border border-slate-200 hover:border-blue-200 rounded-lg transition"
+                onClick={handleDashboardClick}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-white bg-blue-900 hover:bg-blue-800 border border-blue-800 rounded-lg transition"
               >
-                <Lock className="w-4 h-4" />
-                Panel Admin
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
               </button>
+              {isAdmin && (
+                <button
+                  onClick={onAdmin}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-blue-900 border border-slate-200 hover:border-blue-200 rounded-lg transition"
+                >
+                  <Lock className="w-4 h-4" />
+                  Panel Admin
+                </button>
+              )}
               {user ? (
                 <>
                   <button
@@ -197,15 +219,24 @@ export default function LandingPage({ onStartTryout, onAdmin, onHistory, subtest
                 </button>
               )}
               <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onAdmin();
-                }}
-                className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg transition"
+                onClick={handleDashboardClick}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-blue-900 border border-blue-800 rounded-lg transition"
               >
-                <Lock className="w-4 h-4" />
-                Panel Admin
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onAdmin();
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg transition"
+                >
+                  <Lock className="w-4 h-4" />
+                  Panel Admin
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -220,6 +251,29 @@ export default function LandingPage({ onStartTryout, onAdmin, onHistory, subtest
           </div>
         )}
       </nav>
+
+      {/* Login-required toast for Dashboard button */}
+      {showLoginNotice && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-blue-900 text-white rounded-xl shadow-2xl border border-blue-700 p-4 flex items-start gap-3">
+            <div className="w-9 h-9 bg-blue-700 rounded-lg flex items-center justify-center shrink-0">
+              <Info className="w-5 h-5 text-yellow-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Akses Dashboard Siswa</p>
+              <p className="text-blue-200 text-xs mt-0.5 leading-relaxed">
+                Silakan masuk ke akun Anda terlebih dahulu untuk mengakses Dashboard Siswa.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowLoginNotice(false)}
+              className="text-blue-300 hover:text-white shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ============ HERO ============ */}
       <section id="beranda" className="relative pt-16 overflow-hidden">
