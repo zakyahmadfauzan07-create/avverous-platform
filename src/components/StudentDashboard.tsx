@@ -14,6 +14,8 @@ import {
   MapPin,
   FileText,
   Inbox,
+  Users,
+  User,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { UserProfile } from '@/lib/supabase';
@@ -22,9 +24,12 @@ import {
   fetchUpcomingSchedules,
   fetchMaterials,
   fetchMyGrades,
+  fetchOfflineClasses,
   ScheduleRow,
   MaterialRow,
   GradeRow,
+  OfflineClassRow,
+  WEEKDAYS,
 } from '@/lib/dashboardStore';
 
 interface StudentDashboardProps {
@@ -45,6 +50,7 @@ export default function StudentDashboard({ user, profile, onBackHome, onStartTry
   const [grades, setGrades] = useState<GradeRow[]>([]);
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
+  const [offlineClasses, setOfflineClasses] = useState<OfflineClassRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -52,17 +58,19 @@ export default function StudentDashboard({ user, profile, onBackHome, onStartTry
     let mounted = true;
     (async () => {
       try {
-        const [r, g, s, m] = await Promise.all([
+        const [r, g, s, m, oc] = await Promise.all([
           fetchMyResults(),
           fetchMyGrades(),
           fetchUpcomingSchedules(10),
           fetchMaterials(),
+          fetchOfflineClasses(),
         ]);
         if (!mounted) return;
         setResults(r);
         setGrades(g);
         setSchedules(s);
         setMaterials(m);
+        setOfflineClasses(oc);
       } catch (e) {
         if (mounted) setError(e instanceof Error ? e.message : 'Gagal memuat dashboard.');
       } finally {
@@ -202,6 +210,66 @@ export default function StudentDashboard({ user, profile, onBackHome, onStartTry
             />
           ) : (
             <ScoreChart points={chartPoints} />
+          )}
+        </section>
+
+        {/* Jadwal Belajar Offline Level 12 */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-9 h-9 bg-green-50 text-green-600 rounded-lg flex items-center justify-center">
+              <CalendarDays className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-blue-950 text-lg">Jadwal Kelas Offline Level 12</h2>
+              <p className="text-slate-500 text-xs mt-0.5">Sesi tatap muka mingguan — hanya bisa dilihat oleh siswa</p>
+            </div>
+          </div>
+          {offlineClasses.length === 0 ? (
+            <EmptyState icon={<Inbox className="w-8 h-8" />} text="Belum ada jadwal kelas offline." />
+          ) : (
+            <div className="space-y-4">
+              {WEEKDAYS.map((dayName, idx) => {
+                const dayNum = idx + 1;
+                const sessions = offlineClasses.filter((c) => c.day_of_week === dayNum);
+                if (sessions.length === 0) return null;
+                const saintek = sessions.filter((s) => s.track === 'saintek');
+                const soshum = sessions.filter((s) => s.track === 'soshum');
+                const general = sessions.filter((s) => !s.track);
+                return (
+                  <div key={dayNum}>
+                    <h3 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-4 bg-green-500 rounded-full" />
+                      {dayName}
+                    </h3>
+                    <div className="space-y-2 ml-3.5">
+                      {general.map((s) => (
+                        <OfflineClassCard key={s.id} cls={s} />
+                      ))}
+                      {saintek.length > 0 && (
+                        <div className="pl-0">
+                          <p className="text-xs font-semibold text-blue-600 mb-1.5">Saintek</p>
+                          <div className="space-y-2">
+                            {saintek.map((s) => (
+                              <OfflineClassCard key={s.id} cls={s} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {soshum.length > 0 && (
+                        <div className="pl-0">
+                          <p className="text-xs font-semibold text-orange-600 mb-1.5">Soshum</p>
+                          <div className="space-y-2">
+                            {soshum.map((s) => (
+                              <OfflineClassCard key={s.id} cls={s} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </section>
 
@@ -407,6 +475,42 @@ function MaterialCard({ material }: { material: MaterialRow }) {
         {material.content && (
           <span className="text-xs text-slate-400">Materi tersedia</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function OfflineClassCard({ cls }: { cls: OfflineClassRow }) {
+  return (
+    <div className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-green-200 hover:shadow-sm transition bg-white">
+      <div className="flex flex-col items-center shrink-0 w-14 bg-slate-50 rounded-lg py-1.5">
+        <span className="text-xs font-bold text-slate-700">
+          {formatTime(cls.start_time)}
+        </span>
+        {cls.end_time && (
+          <>
+            <span className="text-[10px] text-slate-400 my-0.5">s/d</span>
+            <span className="text-xs font-bold text-slate-500">
+              {formatTime(cls.end_time)}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-semibold text-blue-950 text-sm leading-snug">{cls.subject}</p>
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">
+            <MapPin className="w-2.5 h-2.5" />
+            {cls.location_label}
+          </span>
+        </div>
+        {cls.tutor && (
+          <p className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+            <User className="w-3 h-3 text-slate-400" />
+            {cls.tutor}
+          </p>
+        )}
+        {cls.notes && <p className="text-slate-400 text-xs mt-1 italic">{cls.notes}</p>}
       </div>
     </div>
   );

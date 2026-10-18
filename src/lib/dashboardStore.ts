@@ -174,3 +174,49 @@ export async function fetchStudentSummaries(): Promise<StudentSummaryRow[]> {
   const data = tidy(await supabase.rpc('get_student_summaries'));
   return (data ?? []) as StudentSummaryRow[];
 }
+
+export interface OfflineClassRow {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string | null;
+  subject: string;
+  tutor: string | null;
+  track: string | null;
+  location_label: string;
+  notes: string | null;
+}
+
+export const WEEKDAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as const;
+
+export async function fetchOfflineClasses(): Promise<OfflineClassRow[]> {
+  const data = tidy(
+    await supabase
+      .from('offline_classes')
+      .select('id, day_of_week, start_time, end_time, subject, tutor, track, location_label, notes')
+      .order('day_of_week', { ascending: true })
+      .order('start_time', { ascending: true }),
+  );
+  return data ?? [];
+}
+
+export async function insertOfflineClass(row: Omit<OfflineClassRow, 'id'>): Promise<OfflineClassRow> {
+  const data = tidy(
+    await supabase
+      .from('offline_classes')
+      .insert(row)
+      .select('id, day_of_week, start_time, end_time, subject, tutor, track, location_label, notes')
+      .maybeSingle(),
+  );
+  return data as OfflineClassRow;
+}
+
+export async function updateOfflineClass(id: string, row: Partial<Omit<OfflineClassRow, 'id'>>): Promise<void> {
+  const { error } = await supabase.from('offline_classes').update(row).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteOfflineClass(id: string): Promise<void> {
+  const { error } = await supabase.from('offline_classes').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}

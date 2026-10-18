@@ -13,6 +13,7 @@ import {
   ClipboardList,
   ShieldCheck,
   KeyRound,
+  DoorOpen,
 } from 'lucide-react';
 import { Subtest, PracticeQuestion, LearningModule } from '@/types';
 import { TryoutPackage } from '@/data/questions';
@@ -26,6 +27,7 @@ import SchedulesTab from './admin/SchedulesTab';
 import MaterialsTab from './admin/MaterialsTab';
 import StudentsTab from './admin/StudentsTab';
 import AccessCodesTab from './admin/AccessCodesTab';
+import OfflineClassesTab from './admin/OfflineClassesTab';
 
 interface AdminScreenProps {
   packages: TryoutPackage[];
@@ -49,6 +51,7 @@ type TabId =
   | 'results'
   | 'grades'
   | 'schedules'
+  | 'offlineClasses'
   | 'materials'
   | 'students'
   | 'accessCodes';
@@ -60,6 +63,7 @@ const TABS: { id: TabId; label: string; icon: typeof ListChecks }[] = [
   { id: 'results', label: 'Hasil Tryout', icon: Trophy },
   { id: 'grades', label: 'Input Nilai', icon: ClipboardList },
   { id: 'schedules', label: 'Jadwal', icon: CalendarDays },
+  { id: 'offlineClasses', label: 'Kelas Offline L12', icon: DoorOpen },
   { id: 'materials', label: 'Materi Arsip', icon: BookOpen },
   { id: 'students', label: 'Daftar Siswa', icon: Users },
   { id: 'accessCodes', label: 'Kode Akses', icon: KeyRound },
@@ -166,6 +170,7 @@ export default function AdminScreen({
         {activeTab === 'results' && <ResultsTab results={results} onDelete={onResultDelete} />}
         {activeTab === 'grades' && <GradesTab />}
         {activeTab === 'schedules' && <SchedulesTab />}
+        {activeTab === 'offlineClasses' && <OfflineClassesTab />}
         {activeTab === 'materials' && <MaterialsTab />}
         {activeTab === 'students' && <StudentsTab />}
         {activeTab === 'accessCodes' && <AccessCodesTab packages={packages} />}
