@@ -435,28 +435,58 @@ export default function LandingPage({ onStartTryout, onAdmin, onHistory, subtest
           </button>
 
           <div className="grid sm:grid-cols-3 gap-6 mt-16 text-left">
-            <ContactItem icon={<Mail className="w-5 h-5" />} label="Email" value="info@averroes-academy.id" />
-            <ContactItem icon={<Phone className="w-5 h-5" />} label="Telepon" value="(021) 555-0123" />
-            <ContactItem icon={<MapPin className="w-5 h-5" />} label="Alamat" value="Jl. Pendidikan No. 1, Jakarta" />
+            <ContactItem icon={<Mail className="w-5 h-5" />} label="Email" value="averroescmty@gmail.com" href="mailto:averroescmty@gmail.com" />
+            <ContactItem icon={<Phone className="w-5 h-5" />} label="WhatsApp / Telepon" value="082126868550" href="https://wa.me/6282126868550" />
+            <ContactItem icon={<MapPin className="w-5 h-5" />} label="Alamat" value="Jl. Cilengkrang II No.256, Palasari, Kec. Cibiru, Kota Bandung, Jawa Barat 40615" />
           </div>
         </div>
       </section>
 
       {/* ============ FOOTER ============ */}
-      <footer className="bg-blue-950 border-t border-blue-900/50 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-yellow-400" />
+      <footer className="bg-blue-950 border-t border-blue-900/50 py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto grid gap-8 md:grid-cols-3">
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div>
+                <p className="font-bold text-white text-sm">Averroes Academy</p>
+                <p className="text-slate-500 text-xs">Belajar Bersama demi Mimpi Kita Bersama</p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-white text-sm">Averroes Academy</p>
-              <p className="text-slate-500 text-xs">Belajar Bersama demi Mimpi Kita Bersama</p>
-            </div>
+            <p className="text-slate-500 text-xs leading-relaxed max-w-xs">
+              Platform tryout CBT untuk persiapan UTBK dan ujian masuk perguruan tinggi.
+            </p>
           </div>
-          <p className="text-slate-500 text-xs text-center sm:text-right">
-            © {new Date().getFullYear()} Averroes Academy. Dibuat dengan dedikasi untuk pendidikan Indonesia.
-          </p>
+
+          <div>
+            <p className="text-white text-sm font-semibold mb-3">Kontak</p>
+            <ul className="space-y-3">
+              <li>
+                <a href="mailto:averroescmty@gmail.com" className="flex items-start gap-2.5 text-slate-400 hover:text-yellow-300 text-xs leading-relaxed transition">
+                  <Mail className="w-4 h-4 mt-0.5 shrink-0" />
+                  averroescmty@gmail.com
+                </a>
+              </li>
+              <li>
+                <a href="https://wa.me/6282126868550" target="_blank" rel="noreferrer" className="flex items-start gap-2.5 text-slate-400 hover:text-yellow-300 text-xs leading-relaxed transition">
+                  <Phone className="w-4 h-4 mt-0.5 shrink-0" />
+                  082126868550 (WhatsApp / Telepon)
+                </a>
+              </li>
+              <li className="flex items-start gap-2.5 text-slate-400 text-xs leading-relaxed">
+                <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                Jl. Cilengkrang II No.256, Palasari, Kec. Cibiru, Kota Bandung, Jawa Barat 40615
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex md:justify-end items-start">
+            <p className="text-slate-500 text-xs md:text-right">
+              © {new Date().getFullYear()} Averroes Academy. Dibuat dengan dedikasi untuk pendidikan Indonesia.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
@@ -538,17 +568,31 @@ function BigStat({ icon, value, label }: { icon: React.ReactNode; value: string;
   );
 }
 
-function ContactItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
+function ContactItem({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href?: string }) {
+  const body = (
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 bg-blue-900 rounded-xl flex items-center justify-center text-yellow-400 shrink-0">
         {icon}
       </div>
       <div>
         <p className="text-slate-400 text-xs">{label}</p>
-        <p className="text-white text-sm font-medium">{value}</p>
+        <p className="text-white text-sm font-medium leading-snug">{value}</p>
       </div>
     </div>
   );
+  if (href) {
+    const isExternal = href.startsWith('http');
+    return (
+      <a
+        href={href}
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noreferrer' : undefined}
+        className="hover:opacity-80 transition"
+      >
+        {body}
+      </a>
+    );
+  }
+  return body;
 }
 
