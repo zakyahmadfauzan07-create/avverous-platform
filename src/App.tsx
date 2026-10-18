@@ -250,7 +250,7 @@ export default function App() {
   }
 
   if (screen === 'auth') {
-    return <AuthScreen onBackHome={goHome} />;
+    return <AuthScreen onBackHome={goHome} onAuthSuccess={handleAuthSuccess} />;
   }
 
   if (screen === 'history' && auth.user) {

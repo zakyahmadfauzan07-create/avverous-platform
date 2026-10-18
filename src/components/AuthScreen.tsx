@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GraduationCap, Mail, Lock, User, School, ArrowLeft, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface AuthScreenProps {
   onBackHome: () => void;
+  onAuthSuccess: () => void;
 }
 
-export default function AuthScreen({ onBackHome }: AuthScreenProps) {
+export default function AuthScreen({ onBackHome, onAuthSuccess }: AuthScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [fullName, setFullName] = useState('');
   const [school, setSchool] = useState('');
@@ -15,17 +16,36 @@ export default function AuthScreen({ onBackHome }: AuthScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+  const successRef = useRef(false);
+
+  // Navigate away whenever a session is established (covers login, register+auto-signin, and existing sessions).
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !successRef.current) {
+        successRef.current = true;
+        onAuthSuccess();
+      }
+    });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [onAuthSuccess]);
 
   const handleLogin = async () => {
     setError('');
     setInfo('');
+    if (!email.trim() || !password) {
+      setError('Email dan password wajib diisi.');
+      return;
+    }
     setLoading(true);
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (err) {
+      setLoading(false);
       setError(translateError(err.message));
       return;
     }
+    // onAuthStateChange listener will trigger onAuthSuccess.
   };
 
   const handleRegister = async () => {
@@ -57,14 +77,14 @@ export default function AuthScreen({ onBackHome }: AuthScreenProps) {
     }
     // If Supabase returned a session immediately, the user is already logged in.
     if (data.session) {
-      setLoading(false);
+      // onAuthStateChange listener will trigger onAuthSuccess.
       return;
     }
     // Fallback: no session returned (email confirmation still on at the auth level).
     // Try signing in immediately since our DB trigger auto-confirms the email.
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (signInErr) {
+      setLoading(false);
       setError('Akun berhasil dibuat. Silakan masuk dengan email dan password kamu.');
       setFullName('');
       setSchool('');
@@ -72,11 +92,12 @@ export default function AuthScreen({ onBackHome }: AuthScreenProps) {
       setMode('login');
       return;
     }
-    // Login succeeded — onAuthStateChange will navigate away.
+    // onAuthStateChange listener will trigger onAuthSuccess.
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (mode === 'login') handleLogin();
     else handleRegister();
   };
