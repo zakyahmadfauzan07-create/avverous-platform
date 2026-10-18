@@ -39,6 +39,7 @@ export interface SubtestState {
 }
 
 export interface ExamProgress {
+  packageId?: number;
   participantName: string;
   currentSubtestIndex: number;
   subtestStates: SubtestState[];

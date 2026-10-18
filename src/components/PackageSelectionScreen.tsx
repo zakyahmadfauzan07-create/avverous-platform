@@ -10,21 +10,26 @@ import {
   ChevronDown,
   ChevronUp,
   Lock,
+  PlayCircle,
+  Loader2,
 } from 'lucide-react';
 import { TryoutPackage } from '@/data/questions';
 import { verifyTryoutCode, fetchAccessCodes } from '@/lib/accessCodeStore';
+import { loadSession } from '@/lib/sessionStore';
 import AccessCodeModal from './AccessCodeModal';
 
 interface PackageSelectionScreenProps {
   packages: TryoutPackage[];
   onSelect: (pkg: TryoutPackage) => void;
+  onResume: (pkg: TryoutPackage) => void;
   onBackHome: () => void;
 }
 
-export default function PackageSelectionScreen({ packages, onSelect, onBackHome }: PackageSelectionScreenProps) {
+export default function PackageSelectionScreen({ packages, onSelect, onResume, onBackHome }: PackageSelectionScreenProps) {
   const [expandedId, setExpandedId] = useState<number | null>(packages[0]?.id ?? null);
   const [codeModalPkg, setCodeModalPkg] = useState<TryoutPackage | null>(null);
   const [protectedIds, setProtectedIds] = useState<Set<number>>(new Set());
+  const [inProgressIds, setInProgressIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +46,14 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const ids = new Set<number>();
+    packages.forEach((p) => {
+      if (loadSession(p.id)) ids.add(p.id);
+    });
+    setInProgressIds(ids);
+  }, [packages]);
 
   const toggle = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -61,6 +74,19 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
     setCodeModalPkg(pkg);
   };
 
+  const handleAttemptResume = async (pkg: TryoutPackage) => {
+    try {
+      const ok = await verifyTryoutCode(pkg.id, '');
+      if (ok) {
+        onResume(pkg);
+        return;
+      }
+    } catch {
+      // fall through to code modal
+    }
+    setCodeModalPkg(pkg);
+  };
+
   const handleCodeSubmit = async (code: string) => {
     if (!codeModalPkg) return;
     const ok = await verifyTryoutCode(codeModalPkg.id, code);
@@ -68,8 +94,10 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
       throw new Error('Kode akses tidak valid, silakan hubungi tutor/admin.');
     }
     const pkg = codeModalPkg;
+    const isResume = inProgressIds.has(pkg.id);
     setCodeModalPkg(null);
-    onSelect(pkg);
+    if (isResume) onResume(pkg);
+    else onSelect(pkg);
   };
 
   return (
@@ -128,12 +156,18 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
                     {pkg.id}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-white font-semibold text-base truncate">{pkg.name}</p>
                       {protectedIds.has(pkg.id) && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-yellow-300 bg-yellow-400/15 border border-yellow-400/30 px-1.5 py-0.5 rounded-full shrink-0">
                           <Lock className="w-3 h-3" />
                           Terkunci
+                        </span>
+                      )}
+                      {inProgressIds.has(pkg.id) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-300 bg-green-400/15 border border-green-400/30 px-1.5 py-0.5 rounded-full shrink-0">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Sedang Berjalan
                         </span>
                       )}
                     </div>
@@ -182,13 +216,24 @@ export default function PackageSelectionScreen({ packages, onSelect, onBackHome 
                       </div>
                     ))}
 
-                    <button
-                      onClick={() => handleAttemptStart(pkg)}
-                      className="w-full mt-2 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
-                    >
-                      Mulai Paket Ini
-                      <ArrowRight className="w-5 h-5" />
-                    </button>
+                    {inProgressIds.has(pkg.id) ? (
+                      <button
+                        onClick={() => handleAttemptResume(pkg)}
+                        className="w-full mt-2 bg-green-500 hover:bg-green-400 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                      >
+                        <PlayCircle className="w-5 h-5" />
+                        Lanjutkan Ujian
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleAttemptStart(pkg)}
+                        className="w-full mt-2 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                      >
+                        Mulai Paket Ini
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

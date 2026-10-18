@@ -14,14 +14,16 @@ import { loadPackages, savePackages, resetPackages } from '@/lib/packageStore';
 import { loadPracticeQuestions, savePracticeQuestions } from '@/lib/practiceStore';
 import { loadModules, saveModules } from '@/lib/moduleStore';
 import { fetchAllResults, insertExamResult, deleteExamResult, ExamResultWithId } from '@/lib/examResultsStore';
+import { loadSession, saveSession, clearSession } from '@/lib/sessionStore';
 import { useAuth } from '@/lib/useAuth';
 import { TryoutPackage } from '@/data/questions';
 import { ExamProgress, Screen, SubtestResult, Subtest, PracticeQuestion, LearningModule } from '@/types';
 
 const PROGRESS_KEY = 'utbk_tryout_progress_v1';
 
-function createInitialProgress(name: string, subtests: Subtest[]): ExamProgress {
+function createInitialProgress(name: string, subtests: Subtest[], packageId: number): ExamProgress {
   return {
+    packageId,
     participantName: name,
     currentSubtestIndex: 0,
     subtestStates: subtests.map((st, idx) => ({
@@ -81,16 +83,30 @@ export default function App() {
         if (parsed.examFinished) {
           setScreen('result');
         } else {
-          setScreen('exam');
+          const pkgId = parsed.packageId;
+          if (pkgId) {
+            const pkg = packages.find((p) => p.id === pkgId);
+            if (pkg) {
+              setActivePackage(pkg);
+              setActiveSubtests(pkg.subtests);
+              setScreen('exam');
+            } else {
+              setScreen('exam');
+            }
+          } else {
+            setScreen('exam');
+          }
         }
       } catch {
         // ignore corrupt data
       }
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages.length]);
 
   const saveProgress = useCallback((p: ExamProgress) => {
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+    if (p.packageId) saveSession(p);
   }, []);
 
   const handlePackagesChange = (newPackages: TryoutPackage[]) => {
@@ -140,8 +156,21 @@ export default function App() {
     setScreen('registration');
   };
 
+  const handleResumePackage = (pkg: TryoutPackage) => {
+    const session = loadSession(pkg.id);
+    if (!session) {
+      handleSelectPackage(pkg);
+      return;
+    }
+    setActivePackage(pkg);
+    setActiveSubtests(pkg.subtests);
+    setProgress(session);
+    saveProgress(session);
+    setScreen('exam');
+  };
+
   const handleStart = (name: string) => {
-    const initial = createInitialProgress(name, activeSubtests);
+    const initial = createInitialProgress(name, activeSubtests, activePackage?.id ?? 0);
     setProgress(initial);
     saveProgress(initial);
     setScreen('exam');
@@ -177,6 +206,7 @@ export default function App() {
       const finalProgress = { ...progress, examFinished: true };
       setProgress(finalProgress);
       saveProgress(finalProgress);
+      if (progress.packageId) clearSession(progress.packageId);
       const totalCorrect = finalResults.reduce((acc, r) => acc + r.correct, 0);
       const totalQuestions = finalResults.reduce((acc, r) => acc + r.total, 0);
       const totalScore = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 1000) : 0;
@@ -215,6 +245,7 @@ export default function App() {
   const handleUnlockDiscussion = () => setScreen('discussion');
 
   const handleRestart = () => {
+    if (progress?.packageId) clearSession(progress.packageId);
     localStorage.removeItem(PROGRESS_KEY);
     setProgress(null);
     setResults(null);
@@ -305,7 +336,14 @@ export default function App() {
   }
 
   if (screen === 'packageSelection') {
-    return <PackageSelectionScreen packages={packages} onSelect={handleSelectPackage} onBackHome={goHome} />;
+    return (
+      <PackageSelectionScreen
+        packages={packages}
+        onSelect={handleSelectPackage}
+        onResume={handleResumePackage}
+        onBackHome={goHome}
+      />
+    );
   }
 
   if (screen === 'registration' || (screen === 'exam' && !progress)) {
