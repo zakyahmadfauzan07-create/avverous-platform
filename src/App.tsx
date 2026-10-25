@@ -18,6 +18,12 @@ import { loadSession, saveSession, clearSession } from '@/lib/sessionStore';
 import { useAuth } from '@/lib/useAuth';
 import { TryoutPackage } from '@/data/questions';
 import { ExamProgress, Screen, SubtestResult, Subtest, PracticeQuestion, LearningModule } from '@/types';
+import {
+  buildProgressFromSnapshot,
+  getInitialQuestionIndex,
+  deleteOngoingExam,
+  OngoingExamSnapshot,
+} from '@/lib/ongoingExamStore';
 
 const PROGRESS_KEY = 'utbk_tryout_progress_v1';
 
@@ -48,6 +54,7 @@ export default function App() {
   const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
   const [modules, setModules] = useState<LearningModule[]>([]);
   const [tryoutResults, setTryoutResults] = useState<ExamResultWithId[]>([]);
+  const [resumeQuestionIndex, setResumeQuestionIndex] = useState<number>(0);
   const auth = useAuth();
 
   useEffect(() => {
@@ -165,7 +172,30 @@ export default function App() {
     setActivePackage(pkg);
     setActiveSubtests(pkg.subtests);
     setProgress(session);
+    setResumeQuestionIndex(0);
     saveProgress(session);
+    setScreen('exam');
+  };
+
+  const handleResumeFromServer = (pkg: TryoutPackage, snapshot: OngoingExamSnapshot) => {
+    const rebuilt = buildProgressFromSnapshot(
+      snapshot,
+      pkg.id,
+      auth.profile?.full_name || auth.user?.email || 'Peserta',
+      pkg.subtests,
+    );
+    if (!rebuilt) {
+      // snapshot unusable — fall back to fresh start
+      setActivePackage(pkg);
+      setActiveSubtests(pkg.subtests);
+      setScreen('registration');
+      return;
+    }
+    setActivePackage(pkg);
+    setActiveSubtests(pkg.subtests);
+    setProgress(rebuilt);
+    setResumeQuestionIndex(getInitialQuestionIndex(snapshot));
+    saveProgress(rebuilt);
     setScreen('exam');
   };
 
@@ -207,6 +237,14 @@ export default function App() {
       setProgress(finalProgress);
       saveProgress(finalProgress);
       if (progress.packageId) clearSession(progress.packageId);
+      // Clean up the server-side ongoing exam draft now that the exam is submitted.
+      if (auth.user && progress.packageId != null) {
+        try {
+          await deleteOngoingExam(auth.user.id, progress.packageId);
+        } catch {
+          // best-effort: draft cleanup is non-critical
+        }
+      }
       const totalCorrect = finalResults.reduce((acc, r) => acc + r.correct, 0);
       const totalQuestions = finalResults.reduce((acc, r) => acc + r.total, 0);
       const totalScore = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 1000) : 0;
@@ -341,6 +379,7 @@ export default function App() {
         packages={packages}
         onSelect={handleSelectPackage}
         onResume={handleResumePackage}
+        onResumeFromServer={handleResumeFromServer}
         onBackHome={goHome}
       />
     );
@@ -351,7 +390,7 @@ export default function App() {
   }
 
   if (screen === 'exam' && progress) {
-    return <ExamScreen progress={progress} onUpdate={handleUpdate} onFinish={handleFinish} subtests={activeSubtests.length > 0 ? activeSubtests : (packages[0]?.subtests ?? [])} onBackHome={goHome} />;
+    return <ExamScreen progress={progress} onUpdate={handleUpdate} onFinish={handleFinish} subtests={activeSubtests.length > 0 ? activeSubtests : (packages[0]?.subtests ?? [])} onBackHome={goHome} initialQuestionIndex={resumeQuestionIndex} />;
   }
 
   if (screen === 'result' && progress) {

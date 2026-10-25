@@ -16,20 +16,26 @@ import {
 import { TryoutPackage } from '@/data/questions';
 import { verifyTryoutCode, fetchAccessCodes } from '@/lib/accessCodeStore';
 import { loadSession } from '@/lib/sessionStore';
+import { fetchOngoingExam, deleteOngoingExam, OngoingExamSnapshot } from '@/lib/ongoingExamStore';
+import { supabase } from '@/lib/supabase';
 import AccessCodeModal from './AccessCodeModal';
+import ResumeExamModal from './ResumeExamModal';
 
 interface PackageSelectionScreenProps {
   packages: TryoutPackage[];
   onSelect: (pkg: TryoutPackage) => void;
   onResume: (pkg: TryoutPackage) => void;
+  onResumeFromServer: (pkg: TryoutPackage, snapshot: OngoingExamSnapshot) => void;
   onBackHome: () => void;
 }
 
-export default function PackageSelectionScreen({ packages, onSelect, onResume, onBackHome }: PackageSelectionScreenProps) {
+export default function PackageSelectionScreen({ packages, onSelect, onResume, onResumeFromServer, onBackHome }: PackageSelectionScreenProps) {
   const [expandedId, setExpandedId] = useState<number | null>(packages[0]?.id ?? null);
   const [codeModalPkg, setCodeModalPkg] = useState<TryoutPackage | null>(null);
   const [protectedIds, setProtectedIds] = useState<Set<number>>(new Set());
   const [inProgressIds, setInProgressIds] = useState<Set<number>>(new Set());
+  const [resumeModal, setResumeModal] = useState<{ pkg: TryoutPackage; snapshot: OngoingExamSnapshot } | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -55,13 +61,53 @@ export default function PackageSelectionScreen({ packages, onSelect, onResume, o
     setInProgressIds(ids);
   }, [packages]);
 
+  // Detect server-side ongoing exams (multi-device) for the signed-in user.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+      try {
+        const ids = new Set<number>(inProgressIds);
+        for (const p of packages) {
+          const snap = await fetchOngoingExam(userId, p.id);
+          if (snap && mounted) ids.add(p.id);
+        }
+        if (mounted) setInProgressIds(ids);
+      } catch {
+        // ignore: detection failures should not block selection
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages]);
+
   const toggle = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const checkServerOngoing = async (pkg: TryoutPackage): Promise<OngoingExamSnapshot | null> => {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return null;
+    try {
+      return await fetchOngoingExam(userId, pkg.id);
+    } catch {
+      return null;
+    }
+  };
+
   const handleAttemptStart = async (pkg: TryoutPackage) => {
-    // Verify access code server-side. If no code is set for the package,
-    // verifyTryoutCode returns true and we proceed immediately.
+    // First: check for an unfinished server-side session (multi-device).
+    setResumeLoading(true);
+    const snap = await checkServerOngoing(pkg);
+    setResumeLoading(false);
+    if (snap) {
+      setResumeModal({ pkg, snapshot: snap });
+      return;
+    }
+    // Otherwise: verify access code, then start fresh.
     try {
       const ok = await verifyTryoutCode(pkg.id, '');
       if (ok) {
@@ -75,6 +121,13 @@ export default function PackageSelectionScreen({ packages, onSelect, onResume, o
   };
 
   const handleAttemptResume = async (pkg: TryoutPackage) => {
+    setResumeLoading(true);
+    const snap = await checkServerOngoing(pkg);
+    setResumeLoading(false);
+    if (snap) {
+      setResumeModal({ pkg, snapshot: snap });
+      return;
+    }
     try {
       const ok = await verifyTryoutCode(pkg.id, '');
       if (ok) {
@@ -247,6 +300,34 @@ export default function PackageSelectionScreen({ packages, onSelect, onResume, o
           packageName={codeModalPkg.name}
           onSubmit={handleCodeSubmit}
           onCancel={() => setCodeModalPkg(null)}
+        />
+      )}
+
+      {resumeModal && (
+        <ResumeExamModal
+          open
+          packageName={resumeModal.pkg.name}
+          lastUpdated={resumeModal.snapshot.updatedAt ? new Date(resumeModal.snapshot.updatedAt).toISOString() : undefined}
+          loading={false}
+          onResume={() => {
+            const { pkg, snapshot } = resumeModal;
+            setResumeModal(null);
+            onResumeFromServer(pkg, snapshot);
+          }}
+          onRestart={async () => {
+            const { pkg } = resumeModal;
+            const userId = (await supabase.auth.getUser()).data.user?.id;
+            if (userId) {
+              try {
+                await deleteOngoingExam(userId, pkg.id);
+              } catch {
+                // best-effort
+              }
+            }
+            setResumeModal(null);
+            onSelect(pkg);
+          }}
+          onCancel={() => setResumeModal(null)}
         />
       )}
     </div>

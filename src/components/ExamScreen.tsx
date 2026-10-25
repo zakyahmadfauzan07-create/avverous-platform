@@ -26,6 +26,7 @@ interface ExamScreenProps {
   onFinish: (results: SubtestResult[]) => void;
   subtests: Subtest[];
   onBackHome: () => void;
+  initialQuestionIndex?: number;
 }
 
 function formatTime(seconds: number): string {
@@ -34,10 +35,10 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onBackHome }: ExamScreenProps) {
+export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onBackHome, initialQuestionIndex }: ExamScreenProps) {
   const currentSubtest: Subtest = subtests[progress.currentSubtestIndex];
   const subState = progress.subtestStates[progress.currentSubtestIndex];
-  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const [currentQIndex, setCurrentQIndex] = useState(initialQuestionIndex ?? 0);
   const [showNavGrid, setShowNavGrid] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -71,7 +72,7 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
       if (savingRef.current) return;
       savingRef.current = true;
       try {
-        await upsertOngoingExam(userId, progress, remaining);
+        await upsertOngoingExam(userId, progress, currentQIndex, remaining);
         lastSaveRef.current = t;
       } catch {
         // silent: auto-save failure should not interrupt exam
@@ -82,7 +83,7 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
     [progress, remaining],
   );
 
-  // Debounced save whenever answers/doubts/subtest change.
+  // Debounced save whenever answers/doubts/subtest/active question change.
   useEffect(() => {
     if (!subState.startedAt || subState.ended) return;
     const id = setTimeout(() => {
@@ -90,7 +91,7 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
     }, 600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subState.answers, subState.doubts, subState.subtestId, subState.ended, subState.startedAt]);
+  }, [subState.answers, subState.doubts, subState.subtestId, subState.ended, subState.startedAt, currentQIndex]);
 
   // Periodic save of time_remaining every 12s while subtest is active.
   useEffect(() => {
