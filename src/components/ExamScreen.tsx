@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   GraduationCap,
   Clock,
@@ -17,6 +17,8 @@ import {
 import { scoreSubtest } from '@/data/questions';
 import { ExamProgress, SubtestResult, Subtest, Question } from '@/types';
 import QuestionImage from '@/components/QuestionImage';
+import { upsertOngoingExam, deleteOngoingExam } from '@/lib/ongoingExamStore';
+import { supabase } from '@/lib/supabase';
 
 interface ExamScreenProps {
   progress: ExamProgress;
@@ -54,6 +56,50 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
   const totalSeconds = currentSubtest.durationMinutes * 60;
   const remaining = Math.max(0, totalSeconds - Math.floor(elapsedMs / 1000));
   const isLowTime = remaining <= 60;
+
+  // ----- Auto-save to Supabase -----
+  const lastSaveRef = useRef<number>(0);
+  const savingRef = useRef<boolean>(false);
+
+  const doSave = useCallback(
+    async (force = false) => {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId || !progress.packageId) return;
+      // throttle: at most once per 8s unless forced
+      const t = Date.now();
+      if (!force && t - lastSaveRef.current < 8000) return;
+      if (savingRef.current) return;
+      savingRef.current = true;
+      try {
+        await upsertOngoingExam(userId, progress, remaining);
+        lastSaveRef.current = t;
+      } catch {
+        // silent: auto-save failure should not interrupt exam
+      } finally {
+        savingRef.current = false;
+      }
+    },
+    [progress, remaining],
+  );
+
+  // Debounced save whenever answers/doubts/subtest change.
+  useEffect(() => {
+    if (!subState.startedAt || subState.ended) return;
+    const id = setTimeout(() => {
+      void doSave(true);
+    }, 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subState.answers, subState.doubts, subState.subtestId, subState.ended, subState.startedAt]);
+
+  // Periodic save of time_remaining every 12s while subtest is active.
+  useEffect(() => {
+    if (!subState.startedAt || subState.ended) return;
+    const id = setInterval(() => {
+      void doSave(false);
+    }, 12000);
+    return () => clearInterval(id);
+  }, [subState.startedAt, subState.ended, doSave]);
 
   // auto-transition when time runs out
   useEffect(() => {
@@ -147,6 +193,17 @@ export default function ExamScreen({ progress, onUpdate, onFinish, subtests, onB
     if (isLastSubtest) {
       const results = computeResults(newProgress);
       onFinish(results);
+      // remove the auto-saved draft now that the exam is submitted
+      void (async () => {
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+        if (userId && progress.packageId != null) {
+          try {
+            await deleteOngoingExam(userId, progress.packageId);
+          } catch {
+            // ignore: draft cleanup is best-effort
+          }
+        }
+      })();
     } else {
       onUpdate(newProgress);
       setCurrentQIndex(0);
