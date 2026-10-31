@@ -223,6 +223,11 @@ export default function App() {
       setScreen('auth');
       return;
     }
+    if (!auth.isAdmin) {
+      // Non-admin logged-in user trying to reach admin: bounce to landing.
+      setScreen('landing');
+      return;
+    }
     setScreen('admin');
   };
 

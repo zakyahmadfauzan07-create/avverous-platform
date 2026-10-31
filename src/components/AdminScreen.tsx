@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Lock,
@@ -257,6 +257,17 @@ export default function AdminScreen({
 
   // Role gate: only admins. The database also enforces this via RLS,
   // so this is defense-in-depth, not the only check.
+  const [deniedCountdown, setDeniedCountdown] = useState(5);
+  useEffect(() => {
+    if (isAdmin) return;
+    if (deniedCountdown <= 0) {
+      onExit();
+      return;
+    }
+    const id = setTimeout(() => setDeniedCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [isAdmin, deniedCountdown, onExit]);
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -265,15 +276,18 @@ export default function AdminScreen({
             <Lock className="w-8 h-8 text-red-400" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Akses Ditolak</h1>
-          <p className="text-slate-400 text-sm mb-6">
-            Halaman ini khusus admin/tutor. Akun kamu tidak memiliki izin yang diperlukan.
+          <p className="text-slate-400 text-sm mb-2">
+            Halaman ini hanya untuk Guru/Admin. Akun kamu tidak memiliki izin yang diperlukan.
+          </p>
+          <p className="text-slate-500 text-xs mb-6">
+            Kamu akan diarahkan kembali ke Beranda dalam {deniedCountdown} detik...
           </p>
           <button
             onClick={onExit}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition"
           >
             <ArrowLeft className="w-4 h-4" />
-            Kembali ke Beranda
+            Kembali ke Beranda Sekarang
           </button>
         </div>
       </div>
